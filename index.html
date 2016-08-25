@@ -77,55 +77,27 @@
                                 title: title,
                                 author: author,
                                 url: url,
-                                pic: pic,
-                                lrc: '[00:00.00]'
+                                pic: pic
                             });
                         });
 
-
-                        songUrl.map(function(item, i) {
-                            $.ajax({
-                                type: 'get',
-                                url: songUrl[i],
-                                data: {
-                                    "showapi_timestamp": formatterDateTime(),
-                                    "showapi_appid": showapi_appid, //这里需要改成自己的appid
-                                    "showapi_sign": showapi_sign//这里需要改成自己的密钥
-                                },
-                                error: function(XmlHttpRequest, textStatus, errorThrown) {
-                                    console.log("操作失败!");
-                                },
-                                success: function(response) {
-                                    var body = response.showapi_res_body;
-                                    console.log(i+":")
-                                    console.log(body.lyric?body.lyric: 'null')
-                                    if(body.lyric){
-                                        that.music[i].lrc = body.lyric
-                                    }else{
-                                        that.music[i].lrc = "[00:00.00]" ;
-                                    }
-
-                                    if (i == 5 ) {
-                                        that.ap = new APlayer({
-                                            element: document.getElementById('player1'),
-                                            narrow: false,
-                                            autoplay: true,
-                                            showlrc: 1,
-                                            mutex: true,
-                                            theme: '#615754',
-                                            music: that.music
-                                        });
-
-                                        that.ap.init();
-                                        that.search = '';
-                                        that.music = [];
-                                    }
-                                }
-
-                            });
-
+                        that.ap = new APlayer({
+                            element: document.getElementById('player1'),
+                            narrow: false,
+                            autoplay: true,
+                            showlrc: false,
+                            mutex: true,
+                            theme: '#615754',
+                            preload: 'metadata',
+                            music: that.music
                         });
 
+                        that.ap.init();
+                        that.ap.play();
+                        that.ap.on('canplay',function () {
+                            that.ap.play();
+                        })
+                        that.search = '';
                     }
 
                 });
