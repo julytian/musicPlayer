@@ -3,107 +3,116 @@
 
 <head>
     <meta charset="UTF-8">
-    <link rel="Shortcut Icon" href="favicon.ico">
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-    <title>网易云音乐</title>
-    <script src="js/jquery.min.js"></script>
-    <script src="js/APlayer.min.js"></script>
-    <script src="js/vue.js"></script>
-    <script src="js/vue-resource.js"></script>
+    <title>百度music</title>
 </head>
 
 <body>
     <div id="app">
-        <input type="text" v-model="search">
-        <button @click="searchMusic">搜索</button>
-        <div id="player1" class="aplayer"></div>
+        <input type="text" id="search-input">
+        <ul id="search-items">
+        </ul>
+        <ul id="music-detail">
+        </ul>
     </div>
-    <script>
-    function formatterDateTime() {
-        var date = new Date()
-        var month = date.getMonth() + 1
-        var datetime = date.getFullYear() + "" // "年"
-            + (month >= 10 ? month : "0" + month) + "" // "月"
-            + (date.getDate() < 10 ? "0" + date.getDate() : date
-                .getDate()) + "" + (date.getHours() < 10 ? "0" + date.getHours() : date
-                .getHours()) + "" + (date.getMinutes() < 10 ? "0" + date.getMinutes() : date
-                .getMinutes()) + "" + (date.getSeconds() < 10 ? "0" + date.getSeconds() : date
-                .getSeconds());
-        return datetime;
-    }
-
+    <script src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/vue.js"></script>
+    <script type="text/javascript">
     new Vue({
-        el: '#app',
+        el: "#app",
         data: {
-            search: '',
-            music: [],
-            ap: null,
-        },
-        methods: {
-            searchMusic: function() {
-                if (this.ap) {
-                    this.ap.pause();
-                }
-                var that = this;
-                var time = formatterDateTime();
-                var searchUrl = 'http://route.showapi.com/213-1?keyword=' + this.search;
-                var showapi_appid = '23654';
-                var  showapi_sign = "d23793312daf46ad88a06294772b7aac";
-                $.ajax({
-                    type: 'post',
-                    url: searchUrl,
-                    dataType: 'jsonp',
-                    data: {
-                        "showapi_timestamp": formatterDateTime(),
-                        "showapi_appid": showapi_appid, //这里需要改成自己的appid
-                        "showapi_sign": showapi_sign //这里需要改成自己的密钥
-                    },
-                    jsonp: 'jsonpcallback',
-                    error: function(XmlHttpRequest, textStatus, errorThrown) {
-                        console.log("操作失败!");
-                    },
-                    success: function(response) {
-                        var result = response.showapi_res_body.pagebean.contentlist;
-                        var songUrl = [];
-                        result.map(function(item, i) {
-                            var index  = i;
-                            var songId = item.songid;
-                            var title  = item.songname;
-                            var author = item.singername;
-                            var url    = item.m4a;
-                            var pic    = item.albumpic_big;
-                            songUrl.push('http://route.showapi.com/213-2?musicid=' + songId);
-                            that.music.push({
-                                title: title,
-                                author: author,
-                                url: url,
-                                pic: pic
-                            });
-                        });
-
-                        that.ap = new APlayer({
-                            element: document.getElementById('player1'),
-                            narrow: false,
-                            autoplay: true,
-                            showlrc: false,
-                            mutex: true,
-                            theme: '#615754',
-                            preload: 'metadata',
-                            music: that.music
-                        });
-
-                        that.ap.init();
-                        that.ap.play();
-                        that.ap.on('canplay',function () {
-                            that.ap.play();
-                        })
-                        that.search = '';
-                    }
-
-                });
-            }
+            songname: ''
         }
-    })
+    });
+    var $searchInput = $("#search-input");
+
+    // 搜索框添加 keyup 时间，实时刷新搜索数据
+    $searchInput.on("keyup", function() {
+        var $this = $(this),
+            keyword = $this.val();
+        $.ajax({
+            type: "get",
+            url: "http://sug.music.baidu.com/info/suggestion",
+            dataType: "jsonp",
+            data: {
+                word: keyword,
+                version: 2,
+                from: 0
+            },
+            success: function(data) {
+                // console.log(data);
+                var arrSong = data.data.song || [];
+
+                var $musicList = $("#search-items");
+
+                $musicList.empty();
+
+                // 搜索到结果后，输出 名称－艺术家
+                if (arrSong.length) {
+                    for (var i = 0; i < arrSong.length; i++) {
+                        var $musicItem = $('<li class="list-group-item">' + arrSong[i].songname + ' - ' + arrSong[i].artistname + '</li>');
+                        $musicItem.attr("data-songid", arrSong[i].songid); // 为搜索列表项添加音乐 ID
+                        $musicList.append($musicItem);
+                    }
+                } else { // 没有搜索到结果
+                    var $musicItem = $('<li>暂无结果</li>');
+                    $musicList.append($musicItem);
+                }
+            }
+        });
+    });
+
+
+    // 搜索项添加点击事件
+    $("#search-items").on("click", "li", function() {
+        var songid = $(this).data("songid");
+        analysis(songid);
+    });
+
+    var analysis = function(songid) {
+        $.ajax({
+            type: "get",
+            url: "http://music.baidu.com/data/music/fmlink",
+            dataType: "jsonp",
+            data: {
+                songIds: songid,
+                type: "mp3"
+            },
+            success: function(data) {
+
+                var songData = data.data.songList[0] || {};
+
+                var $musicDetail = $("#music-detail");
+
+                $musicDetail.empty();
+
+                // 构造音乐详情 HTML 结构
+                var $itemDetail = $('<div class="media">' +
+                    '<div class="media-left">' +
+                    '<a href="#">' +
+                    '<img class="media-object" src="' + songData.songPicSmall + '">' +
+                    '</a>' +
+                    '</div>' +
+                    '<div class="media-body">' +
+                    '<h4 class="media-heading">' + songData.songName + ' - ' + songData.artistName + '</h4>' +
+                    '<p>文件格式： ' + songData.format + '</p>' +
+                    '<p><a class="btn btn-success" href="' + songData.songLink + '"><i class="glyphicon glyphicon-cloud-download"></i> 下载</a></p>' +
+                    '<audio src="'+ songData.songLink+'" controls autoplay>'+
+                    '</div>' +
+                    '</div>');
+
+                // 如果没有链接则在下载按钮上添加 disabled 类
+                if (!songData.songLink) {
+                    $itemDetail.find(".btn").addClass("disabled");
+                }
+
+                $musicDetail.append($itemDetail);
+
+                // 显示 JSON 信息
+                $musicDetail.append($('<pre>' + JSON.stringify(songData) + '</pre>'));
+            }
+        });
+    };
     </script>
 </body>
 
